@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Type the Turkey! — Kindergarten Typing Jigsaw</title>
+<style>
+  :root{
+    --bg:#fff8ef; --ink:#3b2b16; --accent:#c04a1c; --gold:#f2b705; --leaf:#7a9e35; --panel:#ffe8c9;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Inter,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);display:flex;align-items:center;justify-content:center}
+  .wrap{width:min(1100px,98vw);padding:clamp(8px,2vw,16px);display:flex;flex-direction:column;gap:10px}
+  .title{display:flex;align-items:center;justify-content:center;gap:.5rem;font-weight:800;letter-spacing:.5px;color:var(--accent);text-shadow:0 2px 0 #00000010;margin:0;font-size:clamp(18px,3.5vw,32px)}
+  .title .tag{font-size:.6em;color:#684429;background:#ffe1c9;padding:.2em .6em;border-radius:999px;border:1px solid #f2c6a6}
+
+  /* Fit on Chromebook screens: grid scales with viewport height */
+  .game-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:min(62vh,92vw);aspect-ratio:1/1;margin:4px auto;border-radius:16px;padding:8px;background:linear-gradient(180deg,#f8e7cf,#f6d9b6);box-shadow:0 10px 30px #00000010 inset,0 20px 50px #00000010}
+  .tile{border-radius:12px;background:#f4d7b9;box-shadow:0 4px 10px #00000018,0 1px 0 #ffffff70 inset;overflow:hidden;position:relative;isolation:isolate}
+  .tile.revealed{background:none}
+  .tile .piece{position:absolute;inset:0;background-size:300% 300%;background-repeat:no-repeat;opacity:0;transform:scale(.9) rotate(-2deg);transition:opacity .35s ease,transform .35s cubic-bezier(.2,.8,.2,1);border-radius:10px}
+  .tile.revealed .piece{opacity:1;transform:scale(1) rotate(0)}
+
+  .panel{display:grid;gap:8px;align-items:center;justify-items:center;margin:0 auto;width:min(900px,96vw)}
+  .card{width:100%;background:var(--panel);border:2px solid #f3d4ad;border-radius:14px;padding:clamp(8px,2vw,14px);box-shadow:0 6px 18px #00000010}
+  .prompt{font-size:clamp(16px,2.5vw,22px);text-align:center;font-weight:700;margin:2px 0}
+  .word-box{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .word{font-weight:900;letter-spacing:.06em;color:var(--accent);font-size:clamp(20px,3.4vw,32px);background:#fff;padding:.08em .45em;border-radius:10px;border:2px dashed #f2b484;display:flex;align-items:center;gap:8px}
+  .speak{border:none;background:#fff4e2;border:2px solid #f2c6a6;padding:.45em .7em;border-radius:10px;font-weight:700;cursor:pointer}
+
+  .input-row{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:6px;flex-wrap:wrap}
+  input[type=text]{font-size:clamp(18px,3vw,28px);padding:.45em .6em;border-radius:10px;border:2px solid #e2c59e;outline:none;min-width:min(360px,78vw);text-align:center;font-weight:800;letter-spacing:.04em}
+  .btn{font-size:clamp(14px,2.2vw,18px);padding:.5em .9em;border-radius:10px;border:2px solid #cfa97b;background:#fff;cursor:pointer;font-weight:800}
+
+  .status{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;font-weight:700;flex-wrap:wrap}
+  .badge{background:#fff;border:2px solid #e7c99f;padding:.15em .55em;border-radius:999px;font-size:clamp(11px,1.8vw,13px)}
+
+  /* Win overlay + confetti */
+  .overlay{position:fixed;inset:0;display:none;place-items:center;background:radial-gradient(ellipse at top,#fff3e1,#ffe7c9);}
+  .overlay.show{display:grid}
+  .win-card{background:#fff;border:3px solid #f2c6a6;border-radius:18px;padding:clamp(14px,3vw,24px);text-align:center;box-shadow:0 18px 50px #00000025;max-width:92vw}
+  .win-card h2{margin:.2em 0;font-size:clamp(22px,4vw,36px);color:var(--accent)}
+  .win-card p{margin:.2em 0 .6em;font-size:clamp(14px,2.2vw,18px)}
+  .win-btn{font-size:clamp(14px,2.5vw,18px);background:linear-gradient(180deg,#ffd19e,#ffb76a);border:2px solid #f2a868;border-radius:12px;padding:.5em 1em;font-weight:900;cursor:pointer}
+  canvas#confetti{position:fixed;inset:0;pointer-events:none}
+
+  /* Small-height devices safety */
+  @media (max-height:700px){
+    .game-grid{width:min(56vh,92vw)}
+    input[type=text]{min-width:min(300px,76vw)}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">🦃 Type the Turkey! <span class="tag">Thanksgiving Jigsaw</span></h1>
+
+    <div id="grid" class="game-grid" aria-label="Turkey jigsaw grid"></div>
+
+    <div class="panel">
+      <div class="card">
+        <div class="prompt">Type this word:</div>
+        <div class="word-box">
+          <span id="targetWord" class="word"></span>
+          <button id="speakBtn" class="speak" aria-label="Speak the word">🔊 Say it</button>
+        </div>
+        <div class="input-row">
+          <input id="answer" type="text" placeholder="type here" autocomplete="off" autocapitalize="none" spellcheck="false" />
+          <button id="checkBtn" class="btn">Check ✅</button>
+          <button id="skipBtn" class="btn">Skip ↷</button>
+          <button id="resetBtn" class="btn">Reset 🔄</button>
+        </div>
+        <div class="status">
+          <span id="statusText" class="badge">0 / 9 pieces</span>
+          <span id="wordLeft" class="badge">9 words left</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Win overlay & confetti -->
+  <div id="win" class="overlay" role="dialog" aria-modal="true">
+    <div class="win-card">
+      <h2>Turkey Complete! 🦃</h2>
+      <p>Great typing! Happy Thanksgiving!</p>
+      <button id="playAgain" class="win-btn">Play Again</button>
+    </div>
+  </div>
+  <canvas id="confetti"></canvas>
+
+<script>
+// ====== DATA & SETTINGS ======
+const WORDS = [
+  "corn","pie","yams","yam","fall","leaf","rolls","roll","gravy","bread","feast",
+  "beans","cider","table","thank","maple","sauce","apple","serve","share","nap","rest",
+  "bake","honey","toast","cloth","acorn","cob","meal","stuff","steam","roast","fork","plate","spoon"
+];
+const PICS = {corn:"🌽", pie:"🥧", yams:"🍠", yam:"🍠", fall:"🍂", leaf:"🍁", rolls:"🥐", roll:"🥐", bread:"🍞", toast:"🍞", gravy:"🫙", sauce:"🫙", feast:"🍽️", beans:"🫘", cider:"🧃", table:"🍽️", thank:"🙏", apple:"🍎", serve:"🧑‍🍳", share:"🤝", nap:"😴", rest:"🛌", bake:"🧁", honey:"🍯", cloth:"🧺", acorn:"🌰", stuff:"🦃", roast:"🍗", steam:"💨", fork:"🍴", plate:"🍽️", spoon:"🥄"};
+
+let words = [], index = 0, revealed = 0, tiles = [], turkeyBG = "";
+
+// ====== HELPERS ======
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function turkeySVG(){
+  // A full-canvas turkey so every tile shows part of the image
+  const svg = `<?xml version='1.0' encoding='UTF-8'?>
+  <svg xmlns='http://www.w3.org/2000/svg' width='900' height='900' viewBox='0 0 900 900'>
+    <defs>
+      <linearGradient id='bg' x1='0' y1='0' x2='0' y2='1'>
+        <stop offset='0%' stop-color='#ffe2b3'/>
+        <stop offset='100%' stop-color='#ffd3a0'/>
+      </linearGradient>
+    </defs>
+    <rect width='100%' height='100%' fill='url(#bg)'/>
+    <g transform='translate(450,420)'>
+      ${Array.from({length:13}, (_,i)=>{ const ang=-90+i*15; const cs=['#a0522d','#bf6b30','#8b4513','#b35c2a','#9c4e1f']; const c=cs[i%cs.length]; return `<ellipse rx='260' ry='120' transform='rotate(${ang}) translate(0,-120)' fill='${c}' opacity='0.9'/>`; }).join('')}
+    </g>
+    <circle cx='450' cy='540' r='190' fill='#6b3d23'/>
+    <ellipse cx='450' cy='420' rx='105' ry='120' fill='#7b4a2b'/>
+    <circle cx='470' cy='395' r='22' fill='#fff'/>
+    <circle cx='478' cy='395' r='10' fill='#2b1a12'/>
+    <circle cx='420' cy='395' r='22' fill='#fff'/>
+    <circle cx='428' cy='395' r='10' fill='#2b1a12'/>
+    <path d='M 445 415 C 480 430 490 445 498 460 C 480 456 462 444 445 432 Z' fill='#d02a2a'/>
+    <polygon points='445,405 520,430 445,450' fill='#f2b705'/>
+    <ellipse cx='350' cy='540' rx='75' ry='100' fill='#5f3520'/>
+    <ellipse cx='550' cy='540' rx='75' ry='100' fill='#5f3520'/>
+    <g fill='#d08b15'>
+      <rect x='400' y='700' width='24' height='70' rx='10'/>
+      <rect x='476' y='700' width='24' height='70' rx='10'/>
+    </g>
+    ${[0,1,2,3,4,5,6].map(i=>{ const x=120+i*110; const y=770+(i%2)*12; const c=['#d39c1d','#9eb33f','#c96f2b'][i%3]; return `<ellipse cx='${x}' cy='${y}' rx='60' ry='18' fill='${c}' opacity='.85'/>`; }).join('')}
+  </svg>`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+}
+
+function buildGrid(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  tiles = [];
+  for(let r=0;r<3;r++){
+    for(let c=0;c<3;c++){
+      const t = document.createElement('div');
+      t.className = 'tile';
+      const p = document.createElement('div');
+      p.className = 'piece';
+      p.style.backgroundImage = turkeyBG;
+      p.style.backgroundPosition = `${c*50}% ${r*50}%`;
+      t.appendChild(p);
+      grid.appendChild(t);
+      tiles.push(t);
+    }
+  }
+}
+
+function updateUI(){
+  const word = words[index] || '';
+  const target = document.getElementById('targetWord');
+  target.textContent = word + ' ' + (PICS[word] || '🧩');
+  document.getElementById('statusText').textContent = `${revealed} / 9 pieces`;
+  document.getElementById('wordLeft').textContent = `${Math.max(0, 9 - revealed)} words left`;
+}
+
+function speak(t){ if(!('speechSynthesis' in window)) return; const u=new SpeechSynthesisUtterance(t); u.lang='en-US'; speechSynthesis.speak(u); }
+function revealNextPiece(){ if(revealed>=9) return; tiles[revealed].classList.add('revealed'); revealed++; updateUI(); if(revealed===9){ celebrate(); } }
+function nextWord(){ index = Math.min(index+1, words.length-1); updateUI(); }
+function checkAnswer(){ const want=words[index]; const got=document.getElementById('answer').value.trim().toLowerCase(); if(got===want){ revealNextPiece(); nextWord(); } document.getElementById('answer').value=''; }
+function resetGame(){ turkeyBG = turkeySVG(); buildGrid(); words = shuffle([...WORDS]).slice(0,9); index = 0; revealed = 0; updateUI(); hideWin(); }
+
+// ====== Celebration (confetti + overlay) ======
+const confettiCanvas = document.getElementById('confetti');
+const cx = confettiCanvas.getContext('2d');
+let confettiItems = [];
+function sizeCanvas(){ confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
+window.addEventListener('resize', sizeCanvas); sizeCanvas();
+function addConfetti(n=180){
+  for(let i=0;i<n;i++){
+    confettiItems.push({
+      x: Math.random()*confettiCanvas.width,
+      y: -20 - Math.random()*200,
+      r: 2 + Math.random()*5,
+      vy: 1 + Math.random()*3,
+      vx: (Math.random() - .5) * 2,
+      a: Math.random()*Math.PI*2,
+      va: (Math.random()-.5)*0.2,
+      color: [ '#f2b705', '#c04a1c', '#7a9e35', '#e07a2d', '#8c5a2b' ][Math.floor(Math.random()*5)]
+    });
+  }
+}
+function drawConfetti(){
+  cx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+  for(const p of confettiItems){
+    cx.save();
+    cx.translate(p.x, p.y);
+    cx.rotate(p.a);
+    cx.fillStyle = p.color;
+    cx.fillRect(-p.r, -p.r, p.r*2, p.r*2);
+    cx.restore();
+    p.y += p.vy; p.x += p.vx; p.a += p.va;
+  }
+  confettiItems = confettiItems.filter(p=> p.y < confettiCanvas.height + 20);
+  requestAnimationFrame(drawConfetti);
+}
+requestAnimationFrame(drawConfetti);
+function showWin(){ document.getElementById('win').classList.add('show'); }
+function hideWin(){ document.getElementById('win').classList.remove('show'); }
+function celebrate(){ addConfetti(240); showWin(); }
+
+document.getElementById('playAgain').addEventListener('click', ()=>{ resetGame(); document.getElementById('answer').focus(); });
+
+// ====== WIRING ======
+document.getElementById('checkBtn').onclick = checkAnswer;
+document.getElementById('skipBtn').onclick  = ()=>{ nextWord(); };
+document.getElementById('resetBtn').onclick = resetGame;
+document.getElementById('speakBtn').onclick = ()=> speak(words[index]||'');
+resetGame();
+
+// ====== TESTS (simple runtime checks) ======
+(function runTests(){
+  try{
+    const url = turkeySVG();
+    console.assert(/^url\(/.test(url), 'turkeySVG() should return a CSS url(...)');
+    buildGrid();
+    console.assert(document.querySelectorAll('.tile').length===9, 'Should build 9 tiles');
+    console.assert(document.querySelector('.game-grid').offsetWidth <= window.innerWidth, 'Grid should fit viewport width');
+    console.log('Self-tests passed');
+  }catch(e){ console.error('Self-tests failed', e); }
+})();
+</script>
+</body>
+</html>
